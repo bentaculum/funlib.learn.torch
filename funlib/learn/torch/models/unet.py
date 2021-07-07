@@ -32,7 +32,7 @@ class ConvPass(torch.nn.Module):
             }[self.dims]
 
             if padding == 'same':
-                pad = tuple(k//2 for k in kernel_size)
+                pad = tuple(k // 2 for k in kernel_size)
             else:
                 pad = 0
 
@@ -44,7 +44,9 @@ class ConvPass(torch.nn.Module):
                         kernel_size,
                         padding=pad))
             except KeyError:
-                raise RuntimeError("%dD convolution not implemented" % self.dims)
+                raise RuntimeError(
+                    "%dD convolution not implemented" %
+                    self.dims)
 
             in_channels = out_channels
 
@@ -165,21 +167,21 @@ class Upsample(torch.nn.Module):
         # s' = n*k + c
 
         ns = (
-            int(math.floor(float(s - c)/f))
+            int(math.floor(float(s - c) / f))
             for s, c, f in zip(spatial_shape, convolution_crop, factor)
         )
         target_spatial_shape = tuple(
-            n*f + c
+            n * f + c
             for n, c, f in zip(ns, convolution_crop, factor)
         )
 
         if target_spatial_shape != spatial_shape:
 
             assert all((
-                    (t > c) for t, c in zip(
-                        target_spatial_shape,
-                        convolution_crop))
-                ), \
+                (t > c) for t, c in zip(
+                    target_spatial_shape,
+                    convolution_crop))
+            ), \
                 "Feature map with shape %s is too small to ensure " \
                 "translation equivariance with factor %s and following " \
                 "convolutions %s" % (
@@ -197,7 +199,7 @@ class Upsample(torch.nn.Module):
         x_target_size = x.size()[:-self.dims] + shape
 
         offset = tuple(
-            (a - b)//2
+            (a - b) // 2
             for a, b in zip(x.size(), x_target_size))
 
         slices = tuple(
@@ -345,9 +347,9 @@ class UNet(torch.nn.Module):
         # default arguments
 
         if kernel_size_down is None:
-            kernel_size_down = [[(3, 3, 3), (3, 3, 3)]]*self.num_levels
+            kernel_size_down = [[(3, 3, 3), (3, 3, 3)]] * self.num_levels
         if kernel_size_up is None:
-            kernel_size_up = [[(3, 3, 3), (3, 3, 3)]]*(self.num_levels - 1)
+            kernel_size_up = [[(3, 3, 3), (3, 3, 3)]] * (self.num_levels - 1)
 
         # compute crop factors for translation equivariance
         crop_factors = []
@@ -357,7 +359,7 @@ class UNet(torch.nn.Module):
                 factor_product = list(factor)
             else:
                 factor_product = list(
-                    f*ff
+                    f * ff
                     for f, ff in zip(factor, factor_product))
             crop_factors.append(factor_product)
         crop_factors = crop_factors[::-1]
@@ -369,8 +371,8 @@ class UNet(torch.nn.Module):
             ConvPass(
                 in_channels
                 if level == 0
-                else num_fmaps*fmap_inc_factor**(level - 1),
-                num_fmaps*fmap_inc_factor**level,
+                else num_fmaps * fmap_inc_factor**(level - 1),
+                num_fmaps * fmap_inc_factor**level,
                 kernel_size_down[level],
                 activation=activation,
                 padding=padding)
@@ -390,8 +392,8 @@ class UNet(torch.nn.Module):
                 Upsample(
                     downsample_factors[level],
                     mode='nearest' if constant_upsample else 'transposed_conv',
-                    in_channels=num_fmaps*fmap_inc_factor**(level + 1),
-                    out_channels=num_fmaps*fmap_inc_factor**(level + 1),
+                    in_channels=num_fmaps * fmap_inc_factor**(level + 1),
+                    out_channels=num_fmaps * fmap_inc_factor**(level + 1),
                     crop_factor=crop_factors[level],
                     next_conv_kernel_sizes=kernel_size_up[level])
                 for level in range(self.num_levels - 1)
@@ -403,9 +405,9 @@ class UNet(torch.nn.Module):
         self.r_conv = nn.ModuleList([
             nn.ModuleList([
                 ConvPass(
-                    num_fmaps*fmap_inc_factor**level +
-                    num_fmaps*fmap_inc_factor**(level + 1),
-                    num_fmaps*fmap_inc_factor**level
+                    num_fmaps * fmap_inc_factor**level +
+                    num_fmaps * fmap_inc_factor**(level + 1),
+                    num_fmaps * fmap_inc_factor**level
                     if num_fmaps_out is None or level != 0
                     else num_fmaps_out,
                     kernel_size_up[level],
@@ -427,7 +429,7 @@ class UNet(torch.nn.Module):
         # end of recursion
         if level == 0:
 
-            fs_out = [f_left]*self.num_heads
+            fs_out = [f_left] * self.num_heads
 
         else:
 
