@@ -2,6 +2,7 @@ from .conv4d import Conv4d
 import math
 import torch
 import torch.nn as nn
+import numpy as np
 
 
 class ConvPass(torch.nn.Module):
@@ -343,13 +344,15 @@ class UNet(torch.nn.Module):
         self.num_heads = num_heads
         self.in_channels = in_channels
         self.out_channels = num_fmaps_out if num_fmaps_out else num_fmaps
+        self.padding = padding
 
         # default arguments
 
         if kernel_size_down is None:
-            kernel_size_down = [[(3, 3, 3), (3, 3, 3)]] * self.num_levels
+            self.kernel_size_down = [[(3, 3, 3), (3, 3, 3)]] * self.num_levels
         if kernel_size_up is None:
-            kernel_size_up = [[(3, 3, 3), (3, 3, 3)]] * (self.num_levels - 1)
+            self.kernel_size_up = [
+                [(3, 3, 3), (3, 3, 3)]] * (self.num_levels - 1)
 
         # compute crop factors for translation equivariance
         crop_factors = []
@@ -373,7 +376,7 @@ class UNet(torch.nn.Module):
                 if level == 0
                 else num_fmaps * fmap_inc_factor**(level - 1),
                 num_fmaps * fmap_inc_factor**level,
-                kernel_size_down[level],
+                self.kernel_size_down[level],
                 activation=activation,
                 padding=padding)
             for level in range(self.num_levels)
@@ -394,8 +397,9 @@ class UNet(torch.nn.Module):
                     mode='nearest' if constant_upsample else 'transposed_conv',
                     in_channels=num_fmaps * fmap_inc_factor**(level + 1),
                     out_channels=num_fmaps * fmap_inc_factor**(level + 1),
-                    crop_factor=crop_factors[level],
-                    next_conv_kernel_sizes=kernel_size_up[level])
+                    crop_factor=crop_factors[level] if padding != 'same' else None,
+                    next_conv_kernel_sizes=self.kernel_size_up[level] if padding != 'same' else None
+                )
                 for level in range(self.num_levels - 1)
             ])
             for _ in range(num_heads)
@@ -410,7 +414,7 @@ class UNet(torch.nn.Module):
                     num_fmaps * fmap_inc_factor**level
                     if num_fmaps_out is None or level != 0
                     else num_fmaps_out,
-                    kernel_size_up[level],
+                    self.kernel_size_up[level],
                     activation=activation,
                     padding=padding)
                 for level in range(self.num_levels - 1)
@@ -461,3 +465,22 @@ class UNet(torch.nn.Module):
             return y[0]
 
         return y
+
+    # @property
+    # def output_size(self, input_size):
+
+        # # TODO account for cropping that preserves translation equivariance
+        # if self.padding == 'valid':
+            # return input_size
+
+        # k_down = [np.array(x) for x in self.kernel_size_down]
+        # k_up = [np.array(x) for x in self.kernel_size_up]
+
+        # def rec(level, s):
+            # # index of level in layer arrays
+            # i = self.num_levels - level - 1
+            # for k in k_down[i]:
+                # s = s - k_down[i]
+            # if level == 0:
+                # return s
+            # return k_up[] - 1
