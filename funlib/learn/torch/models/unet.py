@@ -345,6 +345,7 @@ class UNet(torch.nn.Module):
         self.in_channels = in_channels
         self.out_channels = num_fmaps_out if num_fmaps_out else num_fmaps
         self.padding = padding
+        self.downsample_factors = downsample_factors
 
         # default arguments
 
@@ -466,21 +467,37 @@ class UNet(torch.nn.Module):
 
         return y
 
-    # @property
-    # def output_size(self, input_size):
+    def global_center_crop_size(self, input_size):
 
-        # # TODO account for cropping that preserves translation equivariance
-        # if self.padding == 'valid':
-            # return input_size
+        # TODO throw errors for shapes that don't work.
 
-        # k_down = [np.array(x) for x in self.kernel_size_down]
-        # k_up = [np.array(x) for x in self.kernel_size_up]
+        if self.padding != 'same':
+            raise NotImplementedError(
+                "Global center crop size not implemented for non-same padding, due to translation-equivariance cropping.")
 
-        # def rec(level, s):
-            # # index of level in layer arrays
-            # i = self.num_levels - level - 1
-            # for k in k_down[i]:
-                # s = s - k_down[i]
-            # if level == 0:
-                # return s
-            # return k_up[] - 1
+        assert np.all(np.array(self.kernel_size_down) % 2 == 1)
+        assert np.all(np.array(self.kernel_size_up) % 2 == 1)
+
+        input_size = np.array(input_size, dtype=np.int_)
+        k_down = [np.array(x, dtype=np.int_) for x in self.kernel_size_down]
+        k_up = [np.array(x, dtype=np.int_) for x in self.kernel_size_up]
+        ds_factors = [np.array(x, dtype=np.int_)
+                      for x in self.downsample_factors]
+
+        def rec(level, s):
+            # index of level in layer arrays
+            i = self.num_levels - level - 1
+            for k in k_down[i]:
+                s = s - (k - 1)
+            if level == 0:
+                return s
+            else:
+                s = s // ds_factors[i]
+                s = rec(level - 1, s)
+                s = s * ds_factors[i]
+                for k in k_up[i]:
+                    s = s - (k - 1)
+
+            return s
+
+        return tuple(rec(self.num_levels - 1, input_size))
