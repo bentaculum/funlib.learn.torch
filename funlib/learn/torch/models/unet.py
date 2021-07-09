@@ -351,9 +351,13 @@ class UNet(torch.nn.Module):
 
         if kernel_size_down is None:
             self.kernel_size_down = [[(3, 3, 3), (3, 3, 3)]] * self.num_levels
+        else:
+            self.kernel_size_down = kernel_size_down
         if kernel_size_up is None:
             self.kernel_size_up = [
                 [(3, 3, 3), (3, 3, 3)]] * (self.num_levels - 1)
+        else:
+            self.kernel_size_up = kernel_size_up
 
         # compute crop factors for translation equivariance
         crop_factors = []
